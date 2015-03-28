@@ -1,5 +1,6 @@
 import csv as csv
 import numpy as np
+from collections import namedtuple
 
 class Passenger: #{{{
     """
@@ -55,7 +56,7 @@ def fill_missing_data(passengers): #{{{
     age = np.median([p.Age for p in passengers if p.Age is not None])
     for p in passengers:
         if p.Fare is None: p.Fare = fares[p.Pclass]
-        if p.Age is None: p = age
+        if p.Age is None: p.Age = age
 #}}}
 
 def domains(passengers): #{{{
@@ -80,25 +81,41 @@ def test_strategy(strategy, passengers):
     correct = [p for p in passengers if strategy(p) == p.Survived]
     return len(correct) / len(passengers)
 
-def cheaty(passenger):
-    return passenger.Survived
+def cheaty(passenger): return passenger.Survived
+def gender(passenger): return passenger.Sex == 'female'
 
-def gender(passenger):
-    return passenger.Sex == 'female'
-
-# TODO
+features = {
+   "pclass": lambda p: p.Pclass,
+   "has_posh_name": lambda p: any([part in p.Name for part in ["van "]]),
+   "name_parts": lambda p: len(p.Name.split(" ")),
+   "is_male": lambda p: p.Sex == "male",
+   "age": lambda p: p.Age,
+   "relatives": lambda p: p.SibSp,
+   "parch": lambda p: p.Parch,
+   "fare": lambda p: p.Fare,
+   "embarked_s": lambda p: p.Embarked == "S",
+   "embarked_q": lambda p: p.Embarked == "Q",
+   "embarked_c": lambda p: p.Embarked == "C",
+   "has_cabin": lambda p: p.Cabin != "",
+   "cabin_count": lambda p: 0 if p.Cabin == "" else len(p.Cabin.split(" ")),
+}
+NormPax = namedtuple("NormPax", features.keys())
 def normalized(passenger):
-    pass
+    vals = dict(list(map(lambda i: (i[0],i[1](passenger)), features.items())))
+    return NormPax(**vals)
 
 passengers = read_passengers('data/train.csv')
+fill_missing_data(passengers)
 for k,v in domains(passengers).items():
         print(k, '\n', v, '\n')
-fill_missing_data(passengers)
 save_csv(gender, "my-gender-train.csv", passengers)
 
 print('cheaty', test_strategy(cheaty, passengers))
 print('gender', test_strategy(gender, passengers))
 
 passengers = read_passengers('data/test.csv')
+fill_missing_data(passengers)
 save_csv(gender, "my-gender-test.csv", passengers)
 print(to_array(passengers))
+for i in range(20):
+    print(normalized(passengers[i]))
