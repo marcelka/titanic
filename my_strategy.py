@@ -1,7 +1,122 @@
 import csv as csv
 import numpy as np
+import random
 from collections import namedtuple
 
+Feature = namedtuple("Feature", ["text", "length", "type", "fn"])
+Function = namedtuple("Function", ["text", "fn"])
+
+functions = { #{{{
+    ('n', 'n', 'n') : [
+        Function('+', lambda x,y: x+y), 
+        Function('*', lambda x,y: x*y), 
+        Function('-', lambda x,y: x-y),
+    ],
+
+    ('n', 'n', 'b'): [
+        Function('>', lambda x,y: x>y),
+        Function('<', lambda x,y: x<y),
+        Function('==', lambda x,y: x==y),
+        Function('!=', lambda x,y: x!=y),
+    ],
+
+    ('b', 'b', 'b'): [
+        Function('and', lambda x,y: x and y),
+        Function('or', lambda x,y: x or y),
+        Function('==', lambda x,y: x == y),
+        Function('!=', lambda x,y: x != y),
+    ],
+
+    ('n', 'n'): [
+        Function('-', lambda x: -x),
+    ],
+
+    ('n', 'b'): [
+        Function('>', lambda x: x>0),
+        Function('<', lambda x: x<0),
+        Function('==', lambda x: x==0),
+    ],
+
+    ('b', 'b'): [
+        Function('not', lambda x: not x),
+    ],
+
+    ('b', 'n'): [
+        Function('int', lambda x: 1 if x else 0),
+    ],
+
+    ('b', 'n', 'n', 'n'): [
+        Function('if', lambda x,y,z: y if x else z),
+    ],
+} #}}}
+
+def get_feature(pool):
+    """
+       returns Feature
+    """
+    def get_num(pool):
+        while True:
+            if random.random()<0.1:
+                res = random.randint(0,1000)
+                return Feature(str(res), 1, 'n', lambda p: res)
+            res = random.choice(pool)
+            if res.type == 'n':
+                return res
+
+    def get_bool(pool):
+        while True:
+            res = random.choice(pool)
+            if res.type == 'b':
+                return res
+
+    get_pool = {'n': get_num, 'b': get_bool}
+    c = random.choice(list(functions.keys()))
+    fn = random.choice(functions[c])
+    args_types = c[:-1]
+    res_type = c[-1]
+    args = [get_pool[arg_type](pool) for arg_type in args_types]
+    return Feature('%s(%s)'%(fn.text, ', '.join(f.text for f in args)), 
+                   1 + sum(f.length for f in args),
+                   res_type, 
+                   lambda p: fn(*[arg.fn(p) for arg in args]))
+feature_count = 20
+
+def feature_set_gen(score):
+    result = [Feature('1', 1, 'n', lambda p: 1)]*feature_count
+    pool = []
+    base_pool = [
+        Feature('is_male', 1, 'b', lambda p: p.is_male),
+        Feature('price', 1, 'n', lambda p: p.price),
+    ]
+    while True:
+        npool = list(pool)
+        npool.extend(base_pool)
+        new_feature = get_feature(npool)
+        pool.append(new_feature)
+        if len(pool) > 1000:
+            pool.pop(0)
+        if new_feature.type == 'n':
+            while True:
+                i = random.randint(0, len(result) - 1)
+                if i>0:
+                    break
+            new_result = list(result)
+            new_result[i] = new_feature
+            if score(new_result) > score(result):
+                result = new_result
+                yield result
+
+count = 0
+for feature_set in feature_set_gen(lambda feature_set: random.random()):
+    for f in feature_set:
+        print(f.text)
+        print('\n next feature \n')
+    print('\n\n')
+    count += 1
+    if count == 100:
+        break
+    
+    
 class Passenger: #{{{
     """
     PassengerId: 891
