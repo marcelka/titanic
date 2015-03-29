@@ -1,3 +1,5 @@
 results/*
 experiments/*
 *.swp
+nohup.out
+log.txt
